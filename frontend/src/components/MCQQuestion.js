@@ -3,6 +3,7 @@ export class MCQQuestion {
     this.question = question;
     this.onAnswerSelect = onAnswerSelect;
     this.selectedOption = null;
+    this.eventListeners = [];
   }
 
   render() {
@@ -40,28 +41,40 @@ export class MCQQuestion {
   }
 
   setupEventListeners() {
+    this.cleanup(); // Clear any existing listeners
+
     // Option selection
-    document.querySelectorAll('.option-card').forEach(card => {
-      card.addEventListener('click', (e) => {
+    const optionCards = document.querySelectorAll('.option-card');
+    optionCards.forEach(card => {
+      const listener = (e) => {
         this.selectOption(card.dataset.option);
-      });
+      };
+      card.addEventListener('click', listener);
+      this.eventListeners.push({ element: card, event: 'click', listener });
     });
 
     // Next button
-    document.getElementById('next-btn').addEventListener('click', () => {
-      if (this.selectedOption) {
-        this.onAnswerSelect(this.selectedOption);
-      }
-    });
+    const nextBtn = document.getElementById('next-btn');
+    if (nextBtn) {
+      const listener = () => {
+        if (this.selectedOption) {
+          this.onAnswerSelect(this.selectedOption);
+        }
+      };
+      nextBtn.addEventListener('click', listener);
+      this.eventListeners.push({ element: nextBtn, event: 'click', listener });
+    }
 
     // Keyboard navigation
-    document.addEventListener('keydown', (e) => {
+    const keyListener = (e) => {
       if (e.key >= 'a' && e.key <= 'd') {
         this.selectOption(e.key);
       } else if (e.key === 'Enter' && this.selectedOption) {
         this.onAnswerSelect(this.selectedOption);
       }
-    });
+    };
+    document.addEventListener('keydown', keyListener);
+    this.eventListeners.push({ element: document, event: 'keydown', listener: keyListener });
   }
 
   selectOption(optionId) {
@@ -72,17 +85,25 @@ export class MCQQuestion {
 
     // Add selection to clicked option
     const selectedCard = document.querySelector(`[data-option="${optionId}"]`);
-    selectedCard.classList.add('selected');
+    if (selectedCard) {
+      selectedCard.classList.add('selected');
+    }
     
     this.selectedOption = optionId;
     
     // Enable next button
     const nextBtn = document.getElementById('next-btn');
-    nextBtn.disabled = false;
-    nextBtn.classList.add('active');
+    if (nextBtn) {
+      nextBtn.disabled = false;
+      nextBtn.classList.add('active');
+    }
   }
 
   cleanup() {
-    // Remove event listeners if needed
+    // Remove all event listeners
+    this.eventListeners.forEach(({ element, event, listener }) => {
+      element.removeEventListener(event, listener);
+    });
+    this.eventListeners = [];
   }
 }

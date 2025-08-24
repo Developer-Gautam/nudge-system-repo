@@ -145,7 +145,14 @@ export class QuestionnairePage {
   updateQuestion() {
     const questionContainer = document.getElementById('question-container');
     if (this.currentQuestionIndex < this.questions.length) {
+      // Cleanup previous component
+      if (this.mcqComponent) {
+        this.mcqComponent.cleanup();
+      }
+      
       questionContainer.innerHTML = this.renderCurrentQuestion();
+      
+      // Setup new component
       if (this.mcqComponent) {
         this.mcqComponent.setupEventListeners();
       }
@@ -204,5 +211,8 @@ export class QuestionnairePage {
   cleanup() {
     activityTracker.stopTracking();
     this.nudgeModal.cleanup();
+    if (this.mcqComponent) {
+      this.mcqComponent.cleanup();
+    }
   }
 }
