@@ -1,6 +1,7 @@
 import { apiService } from '../services/api.js';
 import { activityTracker } from '../utils/activityTracker.js';
 import { NudgeModal } from '../components/NudgeModal.js';
+import { MCQQuestion } from '../components/MCQQuestion.js';
 
 export class QuestionnairePage {
   constructor(user, onLogout) {
@@ -9,6 +10,7 @@ export class QuestionnairePage {
     this.questions = [];
     this.currentQuestionIndex = 0;
     this.nudgeModal = new NudgeModal();
+    this.mcqComponent = null;
   }
 
   async init() {
@@ -42,7 +44,7 @@ export class QuestionnairePage {
     app.innerHTML = `
       <div id="main-container" class="container">
         <header class="header">
-          <h1>Questionnaire</h1>
+          <h1>Personality Quiz</h1>
           <div class="user-info">
             <span id="user-email">${this.user.email}</span>
             <button id="logout-btn">Logout</button>
@@ -55,12 +57,17 @@ export class QuestionnairePage {
             <span class="progress-text" id="progress-text">${this.currentQuestionIndex}/10</span>
           </div>
 
-          <div class="question-container">
-            <h2 id="question-text">${this.questions[this.currentQuestionIndex] || 'Loading...'}</h2>
-            <form id="answer-form">
-              <textarea id="answer-input" placeholder="Type your answer here..." rows="4"></textarea>
-              <button type="submit" id="submit-btn">Submit Answer</button>
-            </form>
+          <div class="progress-indicator">
+            ${this.questions.map((_, index) => `
+              <div class="progress-dot ${index < this.currentQuestionIndex ? 'completed' : index === this.currentQuestionIndex ? 'active' : ''}"></div>
+            `).join('')}
+          </div>
+
+          <div class="question-container" id="question-container">
+            ${this.currentQuestionIndex < this.questions.length ? 
+              this.renderCurrentQuestion() : 
+              '<div class="loading">Loading...</div>'
+            }
           </div>
 
           <div class="completion-message hidden" id="completion-message">
@@ -75,14 +82,23 @@ export class QuestionnairePage {
     `;
 
     this.updateProgress();
+    this.updateProgressIndicator();
+  }
+
+  renderCurrentQuestion() {
+    if (this.currentQuestionIndex < this.questions.length) {
+      const question = this.questions[this.currentQuestionIndex];
+      this.mcqComponent = new MCQQuestion(question, (answer) => {
+        this.handleAnswerSubmit(answer);
+      });
+      return this.mcqComponent.render();
+    }
+    return '';
   }
 
   setupEventListeners() {
     // Logout
     document.getElementById('logout-btn').addEventListener('click', this.handleLogout.bind(this));
-
-    // Answer form
-    document.getElementById('answer-form').addEventListener('submit', this.handleAnswerSubmit.bind(this));
 
     // Restart button
     document.getElementById('restart-btn').addEventListener('click', this.handleRestart.bind(this));
@@ -92,6 +108,11 @@ export class QuestionnairePage {
       this.handleContinue.bind(this),
       this.handleDismiss.bind(this)
     );
+
+    // Setup MCQ component event listeners
+    if (this.mcqComponent) {
+      this.mcqComponent.setupEventListeners();
+    }
   }
 
   startActivityTracking() {
@@ -109,22 +130,29 @@ export class QuestionnairePage {
     progressText.textContent = `${this.currentQuestionIndex}/10`;
   }
 
+  updateProgressIndicator() {
+    const dots = document.querySelectorAll('.progress-dot');
+    dots.forEach((dot, index) => {
+      dot.classList.remove('active', 'completed');
+      if (index < this.currentQuestionIndex) {
+        dot.classList.add('completed');
+      } else if (index === this.currentQuestionIndex) {
+        dot.classList.add('active');
+      }
+    });
+  }
+
   updateQuestion() {
-    const questionText = document.getElementById('question-text');
+    const questionContainer = document.getElementById('question-container');
     if (this.currentQuestionIndex < this.questions.length) {
-      questionText.textContent = this.questions[this.currentQuestionIndex];
+      questionContainer.innerHTML = this.renderCurrentQuestion();
+      if (this.mcqComponent) {
+        this.mcqComponent.setupEventListeners();
+      }
     }
   }
 
-  async handleAnswerSubmit(e) {
-    e.preventDefault();
-    
-    const answer = document.getElementById('answer-input').value.trim();
-    if (!answer) {
-      alert('Please enter an answer');
-      return;
-    }
-
+  async handleAnswerSubmit(answer) {
     try {
       const data = await apiService.submitAnswer(answer);
       this.currentQuestionIndex = data.currentQuestion;
@@ -134,10 +162,9 @@ export class QuestionnairePage {
       } else {
         this.updateQuestion();
         this.updateProgress();
+        this.updateProgressIndicator();
         activityTracker.resetTimer();
       }
-      
-      document.getElementById('answer-input').value = '';
     } catch (error) {
       alert(error.message || 'Failed to submit answer');
     }
@@ -155,6 +182,7 @@ export class QuestionnairePage {
     document.getElementById('completion-message').classList.add('hidden');
     this.updateQuestion();
     this.updateProgress();
+    this.updateProgressIndicator();
     this.startActivityTracking();
   }
 
