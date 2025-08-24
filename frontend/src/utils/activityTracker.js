@@ -3,7 +3,7 @@ import { apiService } from '../services/api.js';
 class ActivityTracker {
   constructor() {
     this.inactivityTimer = null;
-    this.nudgeDelay = 60000; // 1 minute
+    this.nudgeDelay = 10000; // 1 minute
     this.onInactivityCallback = null;
     this.isTracking = false;
   }
